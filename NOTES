@@ -1,0 +1,12 @@
+31  ## If first column is X, remove it
+if(colnames(df)[1] == 'X') {
+ df <- df[,-1]  
+}
+
+
+
+library(formattable)
+(formattable(table))
+
+library(formattable)
+formattable(data.frame(table))
