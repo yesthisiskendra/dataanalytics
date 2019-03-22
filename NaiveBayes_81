@@ -1,0 +1,182 @@
+## ***************************************
+## CREATING powerfulDF
+## ***************************************
+## ************************************
+## DATA PREP: Creating POWERFUL_DF
+## ************************************
+## This DF collects a bunch of numeric stats for stars & directors
+## Based on both their movie(s) scores & movie(s) profit
+
+## ====================================
+## STEP 1: LOAD THE DATA
+## ====================================
+library(dplyr)
+
+setwd("/Users/kosburn 1/syracuse/IST707/project/FINAL/CSV")
+everything_MoviesUSA="everything_MoviesUSA.csv"
+everything_MoviesUSADiscretized="everything_MoviesUSADiscretized.csv"
+MoviesFileDF <- read.csv(everything_MoviesUSA, header = TRUE)
+MoviesFileDFDiscretized <- read.csv(everything_MoviesUSADiscretized, header = TRUE)
+df <- MoviesFileDF
+
+## ====================================
+## STEP 2: AGGREGATE & MATH THE DATA
+## ====================================
+## FOR STARS **************************
+## & SCORES ***************************
+starAvgScore <- aggregate(df$score, by=list(star=df$star), FUN=mean)
+starMaxScore <- aggregate(df$score, by=list(star=df$star), FUN=max)
+starMinScore <- aggregate(df$score, by=list(star=df$star), FUN=min)
+starFrequency <- aggregate(df$score, by=list(star=df$star), FUN=length)
+starPower <- cbind(starAvgScore, starMaxScore[,2], starMinScore[,2], starFrequency[,2])
+
+## & PercPROF **************************
+starAvgPercProf <- aggregate(df$percProf, by=list(star=df$star), FUN=mean)
+starMaxPercProf <- aggregate(df$percProf, by=list(star=df$star), FUN=max)
+starMinPercProf <- aggregate(df$percProf, by=list(star=df$star), FUN=min)
+
+## combining & renaming
+starPower <- cbind(starAvgScore, starMaxScore[,2], starMinScore[,2], starFrequency[,2],
+                   starAvgPercProf[,2], starMaxPercProf[,2], starMinPercProf[,2])
+colnames(starPower) <- c('star', 'starScoreAvg', 'starScoreMax','starScoreMin', 'starFrequency',
+                         'starPPAvg', 'starPPMax', 'starPPMin')
+
+## FOR DIRECTORS ***********************
+## & SCORES ****************************
+directorAvgScore <- aggregate(df$score, by=list(director=df$director), FUN=mean)
+directorMaxScore <- aggregate(df$score, by=list(director=df$director), FUN=max)
+directorMinScore <- aggregate(df$score, by=list(director=df$director), FUN=min)
+directorFrequency <- aggregate(df$score, by=list(director=df$director), FUN=length)
+directorPower <- cbind(directorAvgScore, directorMaxScore[,2], directorMinScore[,2], directorFrequency[,2])
+
+## & PercPROF ***************************
+directorAvgPercProf <- aggregate(df$percProf, by=list(director=df$director), FUN=mean)
+directorMaxPercProf <- aggregate(df$percProf, by=list(director=df$director), FUN=max)
+directorMinPercProf <- aggregate(df$percProf, by=list(director=df$director), FUN=min)
+
+## combining & renaming
+directorPower <- cbind(directorAvgScore, directorMaxScore[,2], directorMinScore[,2], directorFrequency[,2],
+                       directorAvgPercProf[,2], directorMaxPercProf[,2], directorMinPercProf[,2])
+colnames(directorPower) <- cbind('director', 'directorScoreAvg', 'directorScoreMax', 'directorScoreMin', 'directorFrequency',
+                                 'directorPPAvg', 'directorPPMax', 'directorPPMin')
+
+
+# ## FOR writers ***********************
+# ## & SCORES ****************************
+# writerAvgScore <- aggregate(df$score, by=list(writer=df$writer), FUN=mean)
+# writerMaxScore <- aggregate(df$score, by=list(writer=df$writer), FUN=max)
+# writerMinScore <- aggregate(df$score, by=list(writer=df$writer), FUN=min)
+# writerFrequency <- aggregate(df$score, by=list(writer=df$writer), FUN=length)
+# writerPower <- cbind(writerAvgScore, writerMaxScore[,2], writerMinScore[,2], writerFrequency[,2])
+# 
+# ## & PercPROF ***************************
+# writerAvgPercProf <- aggregate(df$percProf, by=list(writer=df$writer), FUN=mean)
+# writerMaxPercProf <- aggregate(df$percProf, by=list(writer=df$writer), FUN=max)
+# writerMinPercProf <- aggregate(df$percProf, by=list(writer=df$writer), FUN=min)
+# 
+# ## combining & renaming
+# writerPower <- cbind(writerAvgScore, writerMaxScore[,2], writerMinScore[,2], writerFrequency[,2],
+#                      writerAvgPercProf[,2], writerMaxPercProf[,2], writerMinPercProf[,2])
+# colnames(writerPower) <- cbind('writer', 'writerScoreAvg', 'writerScoreMax', 'writerScoreMin', 'writerFrequency',
+#                                'writerPPAvg', 'writerPPMax', 'writerPPMin')
+# 
+# 
+
+## ====================================
+## STEP 3: PUT IT ALL TOGETHER & SAVE
+## ====================================
+powerfulDF <- MoviesFileDF[,c('name', 'director', 'directorPopularity', 'budget', 'star', 'percProf', 'profit','gross', 'score' )]
+powerfulDF <- starPower %>% full_join(powerfulDF)
+powerfulDF <- directorPower %>% full_join(powerfulDF)
+# powerfulDF <- directorPower %>% full_join(powerfulDF)
+str(powerfulDF)
+head(powerfulDF)
+
+write.csv(powerfulDF, 'powerfulDF.csv')
+
+
+## ***************************************
+## MODELING: NAIVE BAYES TO PREDICT SCORE
+## ***************************************
+## Getting 81% accuracy to predict score "high" or score "low"
+## ======================================
+## STEP 1: LOAD THE DATA
+## ======================================
+library(e1071)
+powerfulDFcsv="powerfulDF.csv"
+powerfulDF <- read.csv(powerfulDFcsv, header = TRUE)
+
+## ======================================
+## STEP 2: FORMAT THE WAY YOU WANT
+## ======================================
+## PUT DF OF CHOICE INTO BRILLIANTLY NAMED VARIABLE
+df <- powerfulDF
+df <- powerfulDF[,c('directorScoreAvg','starScoreAvg', 'gross', 'score')]
+
+## PUT DISCRETIZED Y VARIABLE INTO THE DATAFRAME 
+df$score <- arules::discretize(powerfulDF$score, method = "fixed", breaks = c(0, 6.0, Inf), labels = c("low", "high"))
+
+## ======================================
+## STEP 3: MAKE TEST & TRAIN SET
+## ======================================
+set.seed(42)
+df_train = df[sample(nrow(df), 650),]
+df_test = setdiff(df, df_train)
+
+## TRAIN SET: Removing but saving Nominals
+nominalsToRemove <- c('director', 'star', 'name')
+# df_train_nominals <- df_train[,nominalsToRemove]
+df_train <- df_train[,!colnames(df_train) %in% nominalsToRemove]
+
+## TEST SET: Removing but saving Nominals AND Labels
+test_label <- c('score')
+# df_test_nominals <- df_test[,nominalsToRemove]
+df_test <- df_test[,!colnames(df_test) %in% nominalsToRemove]
+df_test_no_label <- df_test[,!colnames(df_test) %in% test_label]
+
+## ======================================
+## STEP 4: RUN THE MODEL
+## ======================================
+varToTestName <- c('Score')
+modelType <- ('NB')
+modelTitle <- (1)
+modelname <- paste(modelType,"_", modelTitle, sep="")
+
+
+set.seed(42)
+NB_e1071<-naiveBayes(score~., data=df_train, na.action = na.pass)
+NB_e1071_Pred <- predict(NB_e1071, df_test_no_label)
+(table <- table(NB_e1071_Pred,df_test$score))
+correct <- sum(diag(table))
+(accuracy <- correct/sum(table))
+
+
+ggfilename <- paste(modelType, "_GG.png", sep="")
+ggplotTitle <- paste("Accuracy Percentage running ",modelType," for ", varToTestName, sep="")
+varToTest <- levels(df_test$score)
+nf <- length(varToTest)
+nt <- (nrow(df_test)/nf)
+model <- replicate(nf, "vis")
+(accuracy <- c(diag(table)/nt*100))
+(accuracy_rate <- sum(diag(table))/sum(table))
+model_accuracy <- data.frame(varToTest, model, accuracy)
+(model_plot <- ggplot(model_accuracy, aes(x = varToTest, y = accuracy, fill = rainbow(nf))) + geom_bar(stat = "identity") + theme(legend.position ="none") + scale_x_discrete(limit = varToTest))
+(model_plot <- model_plot + ylab("Accuracy Percentage") + xlab(varToTestName) + ggtitle(ggplotTitle) + ylim(0, 100))+ggsave(ggfilename, plot = last_plot(), device = NULL)
+
+
+
+
+
+
+# 
+# 
+# 
+# percProf <- c('Below Average', 'Above Average')
+# model <- replicate(1, "NBattempt1")
+# (accuracy <- c(diag(table)/nt*100))
+# # accuracy <- c(39, 68)
+# rf2_accuracy <- data.frame(percProf, model, accuracy)
+# (rf2_plot <- ggplot(rf2_accuracy, aes(x = percProf, y = accuracy, fill = rainbow(3))) + geom_bar(stat = "identity") + theme(legend.position ="none") + scale_x_discrete(limit = c("Negative", 'Average', 'High')))
+# (rf2_plot <- rf2_plot + ylab("Accuracy Percentage") + xlab("Percent Profit") + ggtitle("Accuracy Percentage for Random Forest Model for Percent Profit") + ylim(0, 100))+ggsave(ggfilenameM2, plot = last_plot(), device = NULL)
+# 
+# 
