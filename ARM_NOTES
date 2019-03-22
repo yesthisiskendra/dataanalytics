@@ -1,0 +1,69 @@
+## *************************************************
+## MODELING: ASSOCIATION RULE MINING TO GIVE RECS
+## *************************************************
+## ================================================
+## STEP 1: LOAD THE DATA & LIBRARIES
+## ================================================
+
+library(arules)
+setwd("/Users/kosburn 1/syracuse/IST707/project/FINAL")
+
+# moviesUSADiscretized <- read.csv("everything_moviesUSADiscretized.csv", header = TRUE)
+moviesUSADiscretized <- read.csv("moviesUSADiscretized_2.csv", header = TRUE)
+if(colnames(moviesUSADiscretized)[1] == 'X') {
+  moviesUSADiscretized <- moviesUSADiscretized[,-1]  
+}
+
+#removing variables I don't want 
+#colstoremove <- c('starAge', 'starYearBorn', 'starGender','directorGender', 'directorYearBorn', 'directorAge', 'released', 'year' )
+colstoremove <- c('profit','starAge', 'starYearBorn', 'starGender','directorGender', 'directorYearBorn', 'directorAge', 'released', 'year' )
+moviesUSADiscretized<-moviesUSADiscretized[,!colnames(moviesUSADiscretized) %in% colstoremove]
+suppVar <- 0.01
+confVar <- 0.8
+maxlenVar <- 3
+
+budget <- unique(moviesUSADiscretized$budget)
+gross <- unique(moviesUSADiscretized$gross)
+runtime <- unique(moviesUSADiscretized$runtime)
+score <- unique(moviesUSADiscretized$score)
+votes <- unique(moviesUSADiscretized$votes)
+profit <- unique(moviesUSADiscretized$profit)
+genre <- unique(moviesUSADiscretized$genre)
+rating <- unique(moviesUSADiscretized$rating)
+
+
+stats <- list(
+  "budget"=budget,
+  "gross"=gross,
+  "runtime"=runtime,
+  "score"=score,
+  "votes"=votes,
+  "profit"=profit,
+  "genre"=genre,
+  "rating"=rating
+)
+rulesDF = data.frame()
+spot = 1
+for (stat in stats) {
+  for (i in stat) {
+    rhsVar <- paste(names(stats)[spot],"=",i,sep = "")
+    rulesRight <- apriori(moviesUSADiscretized, parameter = list(supp = suppVar, conf = confVar, maxlen = maxlenVar), 
+                          appearance = list (default = "lhs", rhs=rhsVar),control=list(verbose=F))
+    
+    options(digits=2)
+    ## rulesByLift <- head(sort(rulesRight, by="lift"), 10)   
+    ## rulesByCount <- head(sort(rulesRight, by="count"), 10)   
+    ## arules::inspect(rulesRight)s
+    ## arules::inspect(rulesByLift)
+    ## arules::inspect(rulesByCount)
+    if(length(rulesRight) > 0){
+      miniruledf = data.frame(
+        lhs = labels(lhs(rulesRight)),
+        rhs = labels(rhs(rulesRight)), 
+        rulesRight@quality)
+      rulesDF <- rbind(miniruledf, rulesDF)
+    }
+  }
+  spot <- spot + 1
+}
+
